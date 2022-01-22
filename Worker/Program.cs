@@ -1,3 +1,4 @@
+using Amazon;
 using Amazon.Runtime;
 using Amazon.SQS;
 using Worker.Services;
@@ -11,7 +12,7 @@ void ConfigureServices(HostBuilderContext context, IServiceCollection services)
         .Configure<FFMpegSettings>(configuration.GetSection(FFMpegSettings.SectionName))
         .Configure<GlobalSettings>(configuration);
 
-    services.AddSingleton<IAmazonSQS>(_ => new AmazonSQSClient(new EnvironmentVariablesAWSCredentials()))
+    services.AddSingleton<IAmazonSQS>(_ => new AmazonSQSClient(new EnvironmentVariablesAWSCredentials(), RegionEndpoint.EUCentral1))
         .AddScoped<FFMpegService>();
 
     services.AddHostedService<Worker.Worker>();
