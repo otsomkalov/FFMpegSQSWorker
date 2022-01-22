@@ -17,11 +17,11 @@ public class FFMpegService
 
     public async Task<string> ConvertAsync(string inputFilePath, string desiredExtension)
     {
-        var outputFilePath = Path.Combine("output", $"{Guid.NewGuid()}{desiredExtension}");
+        var outputFilePath = Path.Combine("/output", $"{Guid.NewGuid()}{desiredExtension}");
 
         var argumentsParts = new List<string>
         {
-            $"-i {inputFilePath}",
+            $"-i input/{inputFilePath}",
             "-filter:v scale='trunc(iw/2)*2:trunc(ih/2)*2'",
             "-c:a aac",
             "-max_muxing_queue_size 1024",
@@ -56,7 +56,7 @@ public class FFMpegService
 
     public async Task<string> GetThumbnailAsync(string filePath)
     {
-        var thumbnailFilePath = Path.Combine("thumbnails", $"{Guid.NewGuid()}.jpg");
+        var thumbnailFilePath = Path.Combine("/thumbnails", $"{Guid.NewGuid()}.jpg");
 
         var processStartInfo = new ProcessStartInfo
         {
@@ -64,7 +64,7 @@ public class FFMpegService
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             FileName = _settings.Path,
-            Arguments = $"-i {filePath} -ss 1 -vframes 1 {thumbnailFilePath}"
+            Arguments = $"-i input/{filePath} -ss 1 -vframes 1 {thumbnailFilePath}"
         };
 
         var process = Process.Start(processStartInfo);
