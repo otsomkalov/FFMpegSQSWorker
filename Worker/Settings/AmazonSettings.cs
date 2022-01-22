@@ -1,6 +1,10 @@
 ﻿namespace Worker.Settings;
 
-public record AmazonSettings(string InputQueueUrl, string OutputQueueUrl)
+public record AmazonSettings
 {
     public const string SectionName = "Amazon";
+
+    public string InputQueueUrl { get; init; }
+
+    public string OutputQueueUrl { get; init; }
 }

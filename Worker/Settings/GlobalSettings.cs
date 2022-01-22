@@ -1,3 +1,6 @@
 ﻿namespace Worker.Settings;
 
-public record GlobalSettings(int Delay);
+public record GlobalSettings
+{
+    public int Delay { get; init; }
+}
