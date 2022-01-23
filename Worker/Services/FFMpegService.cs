@@ -32,13 +32,17 @@ public class FFMpegService
             outputFilePath
         };
 
+        var arguments = string.Join(' ', argumentsParts);
+
+        _logger.LogInformation("Arguments: {Arguments}", arguments);
+
         var processStartInfo = new ProcessStartInfo
         {
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             FileName = _settings.Path,
-            Arguments = string.Join(' ', argumentsParts)
+            Arguments = arguments
         };
 
         var process = Process.Start(processStartInfo);
