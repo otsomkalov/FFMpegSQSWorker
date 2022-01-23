@@ -1,15 +1,12 @@
 trigger:
   branches:
     include:
-      - initial-project
+      - main
 
 pr: none
 
 pool:
   vmImage: 'ubuntu-latest'
-
-variables:
-  ImageName: 'infinitu1327/ffmpeg-sqs-worker:dev'
 
 stages:
 - stage: Build
