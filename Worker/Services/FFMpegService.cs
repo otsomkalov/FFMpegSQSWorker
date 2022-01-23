@@ -7,21 +7,25 @@ namespace Worker.Services;
 public class FFMpegService
 {
     private readonly FFMpegSettings _settings;
+    private readonly FoldersSettings _foldersSettings;
     private readonly ILogger<FFMpegService> _logger;
 
-    public FFMpegService(IOptions<FFMpegSettings> settings, ILogger<FFMpegService> logger)
+    public FFMpegService(IOptions<FFMpegSettings> settings, ILogger<FFMpegService> logger,
+        IOptions<FoldersSettings> directoriesSettings)
     {
         _logger = logger;
+        _foldersSettings = directoriesSettings.Value;
         _settings = settings.Value;
     }
 
     public async Task<string> ConvertAsync(string inputFilePath, string desiredExtension)
     {
-        var outputFilePath = Path.Combine("/output", $"{Guid.NewGuid()}{desiredExtension}");
+        var outputFileName = $"{Guid.NewGuid()}{desiredExtension}";
+        var outputFilePath = Path.Combine(_foldersSettings.OutputFolderPath, outputFileName);
 
         var argumentsParts = new List<string>
         {
-            $"-i input/{inputFilePath}",
+            $"-i {inputFilePath}",
             "-filter:v scale='trunc(iw/2)*2:trunc(ih/2)*2'",
             "-c:a aac",
             "-max_muxing_queue_size 1024",
@@ -45,18 +49,18 @@ public class FFMpegService
 
         if (process.ExitCode == 0)
         {
-            return outputFilePath;
+            return outputFileName;
         }
 
         _logger.LogError("Error during FFMpeg file conversion: {Error}", error);
 
         return null;
-
     }
 
-    public async Task<string> GetThumbnailAsync(string filePath)
+    public async Task<string> GetThumbnailAsync(string inputFilePath)
     {
-        var thumbnailFilePath = Path.Combine("/thumbnails", $"{Guid.NewGuid()}.jpg");
+        var thumbnailFileName = $"{Guid.NewGuid()}.jpg";
+        var thumbnailFilePath = Path.Combine(_foldersSettings.ThumbnailsFolderPath, thumbnailFileName);
 
         var processStartInfo = new ProcessStartInfo
         {
@@ -64,7 +68,7 @@ public class FFMpegService
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             FileName = _settings.Path,
-            Arguments = $"-i input/{filePath} -ss 1 -vframes 1 {thumbnailFilePath}"
+            Arguments = $"-i {inputFilePath} -ss 1 -vframes 1 {thumbnailFilePath}"
         };
 
         var process = Process.Start(processStartInfo);

@@ -10,6 +10,7 @@ void ConfigureServices(HostBuilderContext context, IServiceCollection services)
 
     services.Configure<AmazonSettings>(configuration.GetSection(AmazonSettings.SectionName))
         .Configure<FFMpegSettings>(configuration.GetSection(FFMpegSettings.SectionName))
+        .Configure<FoldersSettings>(configuration.GetSection(FoldersSettings.SectionName))
         .Configure<GlobalSettings>(configuration);
 
     services.AddSingleton<IAmazonSQS>(_ => new AmazonSQSClient(new EnvironmentVariablesAWSCredentials(), RegionEndpoint.EUCentral1))
