@@ -23,11 +23,17 @@ public class Worker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Job execution started");
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                _logger.LogInformation("Running job");
+
                 await RunAsync(stoppingToken);
+
+                _logger.LogInformation("Job execution has finished");
             }
             catch (Exception e)
             {
@@ -54,11 +60,17 @@ public class Worker : BackgroundService
 
         if (!receiveMessageResponse.Messages.Any())
         {
+            _logger.LogInformation("No new messages received");
+
             await Task.Delay(TimeSpan.FromSeconds(globalSettings.Delay), cancellationToken);
         }
 
+        _logger.LogInformation("Received {MessagesCount} messages", receiveMessageResponse.Messages.Count);
+
         foreach (var message in receiveMessageResponse.Messages)
         {
+            _logger.LogInformation("Starting message processing");
+
             await ProcessMessageAsync(message, amazonSettings, ffMpegService, foldersSettings);
 
             await _sqs.DeleteMessageAsync(amazonSettings.InputQueueUrl, message.ReceiptHandle, cancellationToken);
@@ -70,9 +82,7 @@ public class Worker : BackgroundService
     private async Task ProcessMessageAsync(Message receivedQueueMessage, AmazonSettings amazonSettings, FFMpegService ffMpegService, FoldersSettings foldersSettings)
     {
         var (inputFileName, desiredExtension) = JsonSerializer.Deserialize<InputMessage>(receivedQueueMessage.Body)!;
-
         var inputFilePath = Path.Combine(foldersSettings.InputFolderPath, inputFileName);
-
         var outputFilePath = await ffMpegService.ConvertAsync(inputFilePath, desiredExtension);
 
         var resultQueueMessage = new OutputMessage();
