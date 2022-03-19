@@ -12,13 +12,18 @@ public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
     private readonly IAmazonSQS _sqs;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly AmazonSettings _amazonSettings;
+    private readonly GlobalSettings _globalSettings;
+    private readonly FFMpegService _ffMpegService;
 
-    public Worker(ILogger<Worker> logger, IAmazonSQS sqs, IServiceScopeFactory serviceScopeFactory)
+    public Worker(ILogger<Worker> logger, IAmazonSQS sqs, IOptions<AmazonSettings> amazonSettings,
+        IOptions<GlobalSettings> globalSettings, FFMpegService ffMpegService)
     {
         _logger = logger;
         _sqs = sqs;
-        _serviceScopeFactory = serviceScopeFactory;
+        _ffMpegService = ffMpegService;
+        _globalSettings = globalSettings.Value;
+        _amazonSettings = amazonSettings.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -34,6 +39,8 @@ public class Worker : BackgroundService
                 await RunAsync(stoppingToken);
 
                 _logger.LogInformation("Job execution has finished");
+
+                await Task.Delay(TimeSpan.FromSeconds(_globalSettings.Delay), stoppingToken);
             }
             catch (Exception e)
             {
@@ -44,81 +51,34 @@ public class Worker : BackgroundService
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-
-        var amazonSettings = scope.ServiceProvider.GetRequiredService<IOptions<AmazonSettings>>().Value;
-        var globalSettings = scope.ServiceProvider.GetRequiredService<IOptions<GlobalSettings>>().Value;
-        var ffMpegService = scope.ServiceProvider.GetRequiredService<FFMpegService>();
-        var foldersSettings = scope.ServiceProvider.GetRequiredService<IOptions<FoldersSettings>>().Value;
-
         var receiveMessageResponse = await _sqs.ReceiveMessageAsync(new ReceiveMessageRequest
         {
-            QueueUrl = amazonSettings.InputQueueUrl,
+            QueueUrl = _amazonSettings.InputQueueUrl,
             MaxNumberOfMessages = 1,
             WaitTimeSeconds = 20
         }, cancellationToken);
 
-        if (!receiveMessageResponse.Messages.Any())
+        var queueMessage = receiveMessageResponse.Messages.FirstOrDefault();
+
+        if (queueMessage == null)
         {
-            _logger.LogInformation("No new messages received");
-
-            await Task.Delay(TimeSpan.FromSeconds(globalSettings.Delay), cancellationToken);
-        }
-
-        _logger.LogInformation("Received {MessagesCount} messages", receiveMessageResponse.Messages.Count);
-
-        foreach (var message in receiveMessageResponse.Messages)
-        {
-            _logger.LogInformation("Starting message processing");
-
-            await ProcessMessageAsync(message, amazonSettings, ffMpegService, foldersSettings);
-
-            await _sqs.DeleteMessageAsync(amazonSettings.InputQueueUrl, message.ReceiptHandle, cancellationToken);
-
-            await Task.Delay(TimeSpan.FromSeconds(globalSettings.Delay), cancellationToken);
-        }
-    }
-
-    private async Task ProcessMessageAsync(Message receivedQueueMessage, AmazonSettings amazonSettings, FFMpegService ffMpegService, FoldersSettings foldersSettings)
-    {
-        var (inputFileName, desiredExtension) = JsonSerializer.Deserialize<InputMessage>(receivedQueueMessage.Body)!;
-        var inputFilePath = Path.Combine(foldersSettings.InputFolderPath, inputFileName);
-        var outputFilePath = await ffMpegService.ConvertAsync(inputFilePath, desiredExtension);
-
-        var resultQueueMessage = new OutputMessage();
-
-        if (string.IsNullOrEmpty(outputFilePath))
-        {
-            await _sqs.SendMessageAsync(new()
-            {
-                QueueUrl = amazonSettings.OutputQueueUrl,
-                MessageBody = JsonSerializer.Serialize(resultQueueMessage)
-            });
-
             return;
         }
 
-        resultQueueMessage.OutputFilePath = outputFilePath;
+        var (id, inputFilePath, arguments, outputFilePath) = JsonSerializer.Deserialize<InputMessage>(queueMessage.Body)!;
+        var conversionResult = await _ffMpegService.ConvertAsync(inputFilePath, arguments, outputFilePath);
 
-        var thumbnailFilePath = await ffMpegService.GetThumbnailAsync(inputFilePath);
-
-        if (string.IsNullOrEmpty(thumbnailFilePath))
+        if (conversionResult)
         {
+            var resultQueueMessage = new OutputMessage(id);
+
             await _sqs.SendMessageAsync(new()
             {
-                QueueUrl = amazonSettings.OutputQueueUrl,
+                QueueUrl = _amazonSettings.OutputQueueUrl,
                 MessageBody = JsonSerializer.Serialize(resultQueueMessage)
-            });
-
-            return;
+            }, cancellationToken);
         }
 
-        resultQueueMessage.ThumbnailFilePath = thumbnailFilePath;
-
-        await _sqs.SendMessageAsync(new()
-        {
-            QueueUrl = amazonSettings.OutputQueueUrl,
-            MessageBody = JsonSerializer.Serialize(resultQueueMessage)
-        });
+        await _sqs.DeleteMessageAsync(_amazonSettings.InputQueueUrl, queueMessage.ReceiptHandle, cancellationToken);
     }
 }

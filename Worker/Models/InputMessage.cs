@@ -1,6 +1,8 @@
 ﻿namespace Worker.Models;
 
 public record InputMessage(
-    string InputFileName,
-    string DesiredExtension
+    int Id,
+    string InputFilePath,
+    string Arguments,
+    string OutputFilePath
 );
