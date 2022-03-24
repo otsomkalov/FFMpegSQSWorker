@@ -14,6 +14,10 @@ RUN dotnet publish "Worker.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
-COPY --from=mwader/static-ffmpeg /ffmpeg /ffprobe /usr/local/bin/
 COPY --from=publish /app/publish .
+
+RUN apt update -y
+RUN apt upgrade -y
+RUN apt install ffmpeg -y
+
 ENTRYPOINT ["dotnet", "Worker.dll"]
