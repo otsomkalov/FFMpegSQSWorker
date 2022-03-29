@@ -39,13 +39,13 @@ public class Worker : BackgroundService
                 await RunAsync(stoppingToken);
 
                 _logger.LogInformation("Job execution has finished");
-
-                await Task.Delay(TimeSpan.FromSeconds(_globalSettings.Delay), stoppingToken);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Error during Worker execution:");
             }
+
+            await Task.Delay(_globalSettings.Delay, stoppingToken);
         }
     }
 

@@ -2,5 +2,5 @@
 
 public record GlobalSettings
 {
-    public int Delay { get; init; }
+    public TimeSpan Delay { get; init; }
 }
