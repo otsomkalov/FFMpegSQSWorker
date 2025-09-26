@@ -1,3 +1,5 @@
+**This project is archived and now is part of [otsomkalov/ffmpeg-worker](https://github.com/otsomkalov/ffmpeg-worker)**
+
 # FFMpegSQSWorker
 
 Background FFMpeg worker using SQS
